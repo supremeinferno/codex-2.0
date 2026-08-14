@@ -1,5 +1,6 @@
 import streamlit as st
-
+from pages.individual import render_individual
+# from pages.dashboard import render_dashboard
 
 # ==========================================================
 # PAGE CONFIG
@@ -226,6 +227,7 @@ with nav3:
 st.divider()
 
 
+
 # ==========================================================
 # PAGE ROUTER
 # ==========================================================
@@ -239,19 +241,7 @@ current_page = st.session_state.current_page
 
 if current_page == "Individual Analysis":
 
-    st.markdown(
-        '<div class="page-title">Individual Analysis</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        '<div class="page-description">Analyze a single document or image using multimodal retrieval and generation.</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.info(
-        "Individual Analysis module will be connected next."
-    )
+    render_individual()
 
 
 # ==========================================================
@@ -266,7 +256,10 @@ elif current_page == "Research Mode":
     )
 
     st.markdown(
-        '<div class="page-description">Analyze multiple documents as a unified research corpus and perform cross-document reasoning.</div>',
+        '<div class="page-description">'
+        'Analyze multiple documents as a unified research corpus '
+        'and perform cross-document reasoning.'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -287,7 +280,10 @@ elif current_page == "Dashboard":
     )
 
     st.markdown(
-        '<div class="page-description">Monitor Codex usage, processing performance, document activity, and analytics.</div>',
+        '<div class="page-description">'
+        'Monitor Codex usage, processing performance, '
+        'document activity, and analytics.'
+        '</div>',
         unsafe_allow_html=True,
     )
 
