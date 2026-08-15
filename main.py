@@ -1,64 +1,44 @@
 import base64
 
 from langchain_community.vectorstores import Chroma
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_mistralai import (
-    ChatMistralAI,
-    MistralAIEmbeddings
+from langchain_mistralai import ChatMistralAI, MistralAIEmbeddings
+
+from config import (
+    CHROMA_DB_PATH,
+    COLLECTION_NAME,
+    MISTRAL_API_KEY,
 )
 
-from config import CHROMA_DB_PATH, COLLECTION_NAME
-
-
-# ==========================================================
-# EMBEDDINGS
-# ==========================================================
 
 def load_embeddings():
+    return MistralAIEmbeddings(
+        api_key=MISTRAL_API_KEY
+    )
 
-    return MistralAIEmbeddings()
 
-
-# ==========================================================
-# LLM
-# ==========================================================
-
-def load_llm(response_style: str):
+def load_llm(response_style="⚖️ Balanced"):
 
     temperature = {
-
         "📖 Accurate": 0.0,
-
         "⚖️ Balanced": 0.3,
-
-        "🎨 Creative": 0.8
-
+        "🎨 Creative": 0.7,
     }.get(response_style, 0.3)
 
     return ChatMistralAI(
         model="mistral-large-latest",
-        temperature=temperature
+        temperature=temperature,
+        api_key=MISTRAL_API_KEY,
     )
 
 
-# ==========================================================
-# VECTOR STORE
-# ==========================================================
-
 def load_vectorstore():
-
-    embeddings = load_embeddings()
 
     return Chroma(
         persist_directory=CHROMA_DB_PATH,
         collection_name=COLLECTION_NAME,
-        embedding_function=embeddings
+        embedding_function=load_embeddings(),
     )
 
-
-# ==========================================================
-# RETRIEVER
-# ==========================================================
 
 def get_retriever():
 
@@ -67,206 +47,146 @@ def get_retriever():
     return vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={
-            "k": 5,
-            "fetch_k": 10,
-            "lambda_mult": 0.5
-        }
+            "k": 4,
+            "fetch_k": 8,
+            "lambda_mult": 0.5,
+        },
     )
 
 
-# ==========================================================
-# RESPONSE STYLE
-# ==========================================================
-
 STYLE_INSTRUCTIONS = {
-
     "📖 Accurate":
-        "Be strictly factual. Never guess.",
+        "Be strictly factual. Do not guess.",
 
     "⚖️ Balanced":
-        "Be clear, informative and easy to understand.",
+        "Be clear, informative, and easy to understand.",
 
     "🎨 Creative":
-        "Explain concepts in an engaging way while remaining faithful to the document."
+        "Explain concepts engagingly while staying faithful to the document.",
 }
 
 
-# ==========================================================
-# ANSWER LENGTH
-# ==========================================================
-
 LENGTH_INSTRUCTIONS = {
-
     "Short":
         "Answer briefly.",
 
     "Medium":
-        "Provide a well-structured explanation.",
+        "Give a clear and well-structured answer.",
 
     "Detailed":
-        "Provide a comprehensive explanation using headings and bullet points."
+        "Give a comprehensive answer using headings and bullet points.",
 }
 
-
-# ==========================================================
-# RESPONSE GENERATOR
-# ==========================================================
 
 def generate_response(
     question,
     image=None,
     response_style="⚖️ Balanced",
-    answer_length="Medium"
+    answer_length="Medium",
 ):
-
-    # ------------------------------------------------------
-    # Retrieve relevant documents
-    # ------------------------------------------------------
 
     retriever = get_retriever()
 
     docs = retriever.invoke(question)
 
-    # ------------------------------------------------------
-    # Build context
-    # ------------------------------------------------------
+    if not docs:
+        return (
+            "I could not find the answer in the document.",
+            []
+        )
 
     context = "\n\n".join(
         doc.page_content
         for doc in docs
+        if doc.page_content.strip()
     )
 
-    # ------------------------------------------------------
-    # Load LLM
-    # ------------------------------------------------------
+    if not context.strip():
+        return (
+            "I could not find readable text in the document.",
+            docs
+        )
 
     llm = load_llm(response_style)
 
-    # ======================================================
-    # IMAGE + PDF
-    # ======================================================
+    system_prompt = f"""
+You are a document question-answering assistant.
 
-    if image:
+Use ONLY the supplied document context.
 
-        img64 = base64.b64encode(
-            image.getvalue()
-        ).decode()
+Rules:
+- Do not invent information.
+- Do not use outside knowledge.
+- Base the answer on the document.
+- If the answer is not supported by the context, say:
+  "I could not find the answer in the document."
 
-        messages = [
+Style:
+{STYLE_INSTRUCTIONS.get(
+    response_style,
+    STYLE_INSTRUCTIONS["⚖️ Balanced"]
+)}
 
-            (
-                "system",
+Length:
+{LENGTH_INSTRUCTIONS.get(
+    answer_length,
+    LENGTH_INSTRUCTIONS["Medium"]
+)}
 
-                f"""
-You are an expert multimodal AI assistant.
-
-Use the supplied PDF context as the primary source.
-
-Use the uploaded image only when it helps answer
-the question.
-
-Never invent information.
-
-If the answer cannot be found in the PDF context,
-say:
-
-"I could not find the answer in the document."
-
-Response Style:
-
-{STYLE_INSTRUCTIONS[response_style]}
-
-Answer Length:
-
-{LENGTH_INSTRUCTIONS[answer_length]}
-
-PDF Context:
-
+DOCUMENT CONTEXT:
 {context}
 """
-            ),
 
+    # PDF + IMAGE
+    if image is not None:
+
+        image_base64 = base64.b64encode(
+            image.getvalue()
+        ).decode("utf-8")
+
+        image_type = getattr(
+            image,
+            "type",
+            "image/png"
+        )
+
+        messages = [
+            (
+                "system",
+                system_prompt
+            ),
             (
                 "human",
-
                 [
                     {
                         "type": "text",
-                        "text": question
+                        "text": question,
                     },
-
                     {
                         "type": "image_url",
-
                         "image_url": {
-
-                            "url":
-                            f"data:{image.type};base64,{img64}"
-
-                        }
-                    }
-                ]
-            )
+                            "url": (
+                                f"data:{image_type};"
+                                f"base64,{image_base64}"
+                            )
+                        },
+                    },
+                ],
+            ),
         ]
 
         response = llm.invoke(messages)
 
-    # ======================================================
     # PDF ONLY
-    # ======================================================
-
     else:
 
-        prompt = ChatPromptTemplate.from_messages(
+        prompt = f"""
+{system_prompt}
 
-            [
-
-                (
-                    "system",
-
-                    f"""
-You are an expert AI assistant.
-
-Use ONLY the supplied PDF context.
-
-{STYLE_INSTRUCTIONS[response_style]}
-
-{LENGTH_INSTRUCTIONS[answer_length]}
-
-Never invent information.
-
-If the answer cannot be found in the document,
-reply:
-
-"I could not find the answer in the document."
-"""
-                ),
-
-                (
-                    "human",
-
-                    """
-Context:
-
-{context}
-
-Question:
-
+QUESTION:
 {question}
 """
-                )
 
-            ]
-        )
-
-        final_prompt = prompt.invoke(
-
-            {
-                "context": context,
-                "question": question
-            }
-        )
-
-        response = llm.invoke(final_prompt)
+        response = llm.invoke(prompt)
 
     return response.content, docs

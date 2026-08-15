@@ -1,6 +1,6 @@
 import os
 import tempfile
-
+import markdown as md_lib
 import streamlit as st
 
 from create_database import create_vector_database
@@ -288,62 +288,6 @@ def render_individual():
                 + st.session_state.build_error
             )
 
-        # ==================================================
-        # STATUS
-        # ==================================================
-
-        st.markdown(
-            """
-            <h2 style="
-                font-size:22px;
-                margin-top:35px;
-            ">
-                Status
-            </h2>
-            """,
-            unsafe_allow_html=True
-        )
-
-        if st.session_state.pdf_file:
-
-            st.success(
-                f"PDF: {st.session_state.pdf_file.name}"
-            )
-
-        else:
-
-            st.info(
-                "No PDF uploaded"
-            )
-
-        if st.session_state.image_file:
-
-            st.success(
-                f"Image: {st.session_state.image_file.name}"
-            )
-
-        else:
-
-            st.info(
-                "Image not uploaded"
-            )
-
-        if st.session_state.knowledge_ready:
-
-            st.success(
-                "Knowledge Base: Ready"
-            )
-
-            st.caption(
-                f"{st.session_state.pages} pages • "
-                f"{st.session_state.chunks} chunks"
-            )
-
-        else:
-
-            st.info(
-                "Knowledge Base: Not Ready"
-            )
 
     # ======================================================
     # RIGHT COLUMN
@@ -351,41 +295,100 @@ def render_individual():
 
     with right:
 
-        st.markdown(
-            """
-            <h2 style="
-                font-size:28px;
-                font-weight:700;
-                margin-bottom:25px;
+        with st.container(border=True):
+
+            st.markdown(
+                """
+                <h2 style="
+                    font-size:28px;
+                    font-weight:700;
+                    margin:0 0 20px 0;
+                ">
+                    Dialogue
+                </h2>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # --------------------------------------------------
+            # Conversation (CSS-scrollable box, version-proof)
+            # --------------------------------------------------
+
+            chat_html = """
+            <div style="
+                height:450px;
+                overflow-y:auto;
+                padding:10px 14px;
+                border:1px solid rgba(255,255,255,0.1);
+                border-radius:10px;
+                display:flex;
+                flex-direction:column;
+                gap:10px;
             ">
-                Dialogue
-            </h2>
-            """,
-            unsafe_allow_html=True
-        )
+            """
 
-        # --------------------------------------------------
-        # Conversation
-        # --------------------------------------------------
+            for message in st.session_state.messages:
 
-        for message in st.session_state.messages:
+                is_user = message["role"] == "user"
 
-            if message["role"] == "user":
+                bubble_align = "flex-end" if is_user else "flex-start"
+                bubble_bg = "#2b5fd9" if is_user else "#2a2a2a"
+                bubble_color = "#ffffff"
 
-                with st.chat_message("user"):
-
-                    st.write(
+                # Escape HTML-sensitive characters so message
+                # content can't break the layout.
+                if is_user:
+                    # Plain text for user messages — escape only.
+                    content = (
                         message["content"]
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                        .replace("\n", "<br>")
+                    )
+                else:
+                    # Render assistant markdown (bold, headers,
+                    # code blocks) as real HTML.
+                    content = md_lib.markdown(
+                        message["content"],
+                        extensions=["fenced_code", "tables"]
                     )
 
-            else:
+                chat_html += f"""
+                <div style="
+                    align-self:{bubble_align};
+                    background:{bubble_bg};
+                    color:{bubble_color};
+                    padding:10px 14px;
+                    border-radius:12px;
+                    max-width:80%;
+                    font-size:15px;
+                    line-height:1.4;
+                ">
+                    {content}
+                </div>
+                """
 
-                with st.chat_message("assistant"):
+            chat_html += """
+                <div id="chat-bottom-anchor"></div>
+            </div>
+            <script>
+                var anchor = document.getElementById("chat-bottom-anchor");
+                if (anchor) {
+                    anchor.scrollIntoView({behavior: "instant", block: "end"});
+                }
+            </script>
+            """
 
-                    st.write(
-                        message["content"]
-                    )
+            chat_html = "\n".join(
+                line.strip()
+                for line in chat_html.split("\n")
+            )
 
+            st.markdown(
+                chat_html,
+                unsafe_allow_html=True
+            )
         # --------------------------------------------------
         # Suggested Questions
         # --------------------------------------------------
