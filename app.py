@@ -1,7 +1,8 @@
 import streamlit as st
-
+from login_guard import require_login
+from profile import render_profile
 from pages.individual import render_individual
-
+from admin_page import render_admin_page
 
 # ==========================================================
 # PAGE CONFIG
@@ -13,6 +14,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+
+# LOGIN CHECK
+require_login()
 
 
 # ==========================================================
@@ -466,6 +471,11 @@ st.markdown(
 # ==========================================================
 # WORKSPACE
 # ==========================================================
+
+
+# PROFILE
+render_profile()
+
 
 st.markdown(
     '<div class="workspace-title">Workspace</div>',
