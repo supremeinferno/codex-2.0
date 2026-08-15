@@ -5,6 +5,7 @@ from auth import (
     get_total_logins,
     get_users,
     get_login_activity,
+    delete_user,
 )
 
 
@@ -35,9 +36,11 @@ def render_admin_dashboard():
 
     st.divider()
 
+
     # ======================================================
     # REGISTERED USERS
     # ======================================================
+
 
     st.subheader("Registered Users")
 
@@ -47,10 +50,22 @@ def render_admin_dashboard():
 
         for user_id, email, created_at in users:
 
-            st.write(
-                f"**{email}**  \n"
-                f"Registered: {created_at}"
-            )
+            col1, col2 = st.columns([4, 1])
+
+            with col1:
+                st.write(
+                    f"**{email}**  \n"
+                    f"Registered: {created_at}"
+                )
+
+            with col2:
+                if st.button(
+                    "Remove",
+                    key=f"remove_user_{user_id}",
+                    type="secondary",
+                ):
+                    delete_user(user_id)
+                    st.rerun()
 
             st.divider()
 
