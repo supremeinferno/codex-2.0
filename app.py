@@ -549,6 +549,28 @@ with nav3:
         st.rerun()
 
 
+
+# ==========================================================
+# ADMIN NAVIGATION
+# ==========================================================
+
+user = st.session_state.get("user")
+
+if (
+    user
+    and user.get("email") == "317madhavgarg@gmail.com"
+):
+    if st.button(
+        "Admin Dashboard",
+        key="nav_admin",
+        use_container_width=True,
+    ):
+        st.session_state.current_page = "Admin Dashboard"
+        st.rerun()
+
+
+
+
 # ==========================================================
 # PAGE ROUTER
 # ==========================================================
@@ -574,3 +596,7 @@ elif st.session_state.current_page == "Dashboard":
     st.info(
         "Dashboard is under development."
     )
+
+elif st.session_state.current_page == "Admin Dashboard":
+
+    render_admin_page()
