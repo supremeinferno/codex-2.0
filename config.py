@@ -1,21 +1,12 @@
 import os
-import tempfile
 
-from dotenv import load_dotenv
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-# Load variables from .env
-load_dotenv()
-
-
-# ChromaDB location
 CHROMA_DB_PATH = os.path.join(
-    tempfile.gettempdir(),
+    BASE_DIR,
     "chroma_db"
 )
 
+COLLECTION_NAME = "codex_documents"
 
-# Mistral API key
-MISTRAL_API_KEY = os.getenv(
-    "MISTRAL_API_KEY"
-)
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")

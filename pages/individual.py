@@ -17,207 +17,297 @@ def render_individual():
     # SESSION STATE
     # ======================================================
 
-    if "individual_db_ready" not in st.session_state:
-        st.session_state.individual_db_ready = False
+    if "pdf_file" not in st.session_state:
+        st.session_state.pdf_file = None
 
-    if "individual_pages" not in st.session_state:
-        st.session_state.individual_pages = 0
+    if "image_file" not in st.session_state:
+        st.session_state.image_file = None
 
-    if "individual_chunks" not in st.session_state:
-        st.session_state.individual_chunks = 0
+    if "knowledge_ready" not in st.session_state:
+        st.session_state.knowledge_ready = False
 
-    if "individual_messages" not in st.session_state:
-        st.session_state.individual_messages = []
+    if "pages" not in st.session_state:
+        st.session_state.pages = 0
 
-    if "individual_sources" not in st.session_state:
-        st.session_state.individual_sources = []
+    if "chunks" not in st.session_state:
+        st.session_state.chunks = 0
 
-    if "individual_preset" not in st.session_state:
-        st.session_state.individual_preset = ""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-
-    # ======================================================
-    # PAGE HEADER
-    # ======================================================
-
-    st.title("Individual Analysis")
-
-    st.caption(
-        "Analyze a single document or image using "
-        "Codex's multimodal retrieval pipeline."
-    )
-
+    if "build_error" not in st.session_state:
+        st.session_state.build_error = None
 
     # ======================================================
-    # MAIN LAYOUT
+    # DOCUMENT LIBRARY
     # ======================================================
 
     left, right = st.columns(
-        [0.85, 2.15],
-        gap="large",
+        [1, 2.4],
+        gap="large"
     )
 
-
     # ======================================================
-    # LEFT PANEL — DOCUMENT LIBRARY
+    # LEFT COLUMN
     # ======================================================
 
     with left:
 
-        st.subheader("Document Library")
-
+        st.markdown(
+            """
+            <h2 style="
+                font-size:28px;
+                font-weight:700;
+                margin-bottom:25px;
+            ">
+                Document Library
+            </h2>
+            """,
+            unsafe_allow_html=True
+        )
 
         # --------------------------------------------------
         # PDF
         # --------------------------------------------------
 
-        st.markdown("**PDF Document**")
-
-        pdf = st.file_uploader(
-            "Upload PDF",
-            type=["pdf"],
-            key="individual_pdf",
-            label_visibility="collapsed",
+        st.markdown(
+            """
+            <h3 style="
+                font-size:18px;
+                margin-bottom:10px;
+            ">
+                PDF Document
+            </h3>
+            """,
+            unsafe_allow_html=True
         )
 
+        uploaded_pdf = st.file_uploader(
+            "Upload PDF",
+            type=["pdf"],
+            key="pdf_uploader",
+            label_visibility="collapsed"
+        )
+
+        # --------------------------------------------------
+        # Detect NEW PDF
+        # --------------------------------------------------
+
+        if uploaded_pdf is not None:
+
+            current_pdf_id = (
+                uploaded_pdf.name,
+                uploaded_pdf.size
+            )
+
+            old_pdf_id = st.session_state.get(
+                "pdf_id"
+            )
+
+            if current_pdf_id != old_pdf_id:
+
+                # New PDF selected
+                st.session_state.pdf_file = uploaded_pdf
+
+                st.session_state.pdf_id = current_pdf_id
+
+                st.session_state.knowledge_ready = False
+
+                st.session_state.pages = 0
+
+                st.session_state.chunks = 0
+
+                st.session_state.messages = []
+
+                st.session_state.build_error = None
+
+        # --------------------------------------------------
+        # Show uploaded PDF
+        # --------------------------------------------------
+
+        if st.session_state.pdf_file is not None:
+
+            pdf = st.session_state.pdf_file
+
+            st.success(
+                f"PDF: {pdf.name}"
+            )
+
+            if st.button(
+                "Remove PDF",
+                use_container_width=True
+            ):
+
+                # Clear PDF state
+                st.session_state.pdf_file = None
+
+                st.session_state.pdf_id = None
+
+                st.session_state.knowledge_ready = False
+
+                st.session_state.pages = 0
+
+                st.session_state.chunks = 0
+
+                st.session_state.messages = []
+
+                st.session_state.build_error = None
+
+                # Reset uploader
+                st.rerun()
 
         # --------------------------------------------------
         # IMAGE
         # --------------------------------------------------
 
-        st.markdown("**Image**")
+        st.markdown(
+            """
+            <h3 style="
+                font-size:18px;
+                margin-top:35px;
+                margin-bottom:10px;
+            ">
+                Image
+            </h3>
+            """,
+            unsafe_allow_html=True
+        )
 
-        image = st.file_uploader(
+        uploaded_image = st.file_uploader(
             "Upload Image",
             type=[
                 "png",
                 "jpg",
                 "jpeg",
-                "webp",
+                "webp"
             ],
-            key="individual_image",
-            label_visibility="collapsed",
+            key="image_uploader",
+            label_visibility="collapsed"
         )
 
+        if uploaded_image is not None:
 
-        # --------------------------------------------------
-        # IMAGE PREVIEW
-        # --------------------------------------------------
-
-        if image:
-
-            st.markdown("**Image Preview**")
-
-            st.image(
-                image,
-                use_container_width=True,
-            )
-
-
-        # --------------------------------------------------
-        # BUILD KNOWLEDGE BASE
-        # --------------------------------------------------
-
-        st.write("")
-
-        build_library = st.button(
-            "Build Knowledge Base",
-            key="individual_build",
-            use_container_width=True,
-        )
-
-
-        # --------------------------------------------------
-        # BUILD DATABASE
-        # --------------------------------------------------
-
-        if build_library:
-
-            if pdf is None:
-
-                st.warning(
-                    "Please upload a PDF first."
-                )
-
-            else:
-
-                pdf_path = None
-
-                try:
-
-                    # Create temporary PDF
-                    with tempfile.NamedTemporaryFile(
-                        delete=False,
-                        suffix=".pdf",
-                    ) as tmp:
-
-                        tmp.write(
-                            pdf.getvalue()
-                        )
-
-                        pdf_path = tmp.name
-
-
-                    # Build vector database
-                    with st.spinner(
-                        "Processing PDF and building knowledge base..."
-                    ):
-
-                        pages, chunks = (
-                            create_vector_database(
-                                pdf_path
-                            )
-                        )
-
-
-                    # Save information
-                    st.session_state.individual_db_ready = True
-
-                    st.session_state.individual_pages = pages
-
-                    st.session_state.individual_chunks = chunks
-
-                    # Clear old conversation
-                    st.session_state.individual_messages = []
-
-                    st.session_state.individual_sources = []
-
-
-                    st.success(
-                        "Knowledge Base Ready"
-                    )
-
-
-                except Exception as e:
-
-                    st.error(
-                        f"Failed to build knowledge base: {e}"
-                    )
-
-
-                finally:
-
-                    if (
-                        pdf_path
-                        and os.path.exists(pdf_path)
-                    ):
-
-                        os.remove(pdf_path)
-
-
-        # --------------------------------------------------
-        # STATUS
-        # --------------------------------------------------
-
-        st.write("")
-
-        st.markdown("**Status**")
-
-
-        if pdf:
+            st.session_state.image_file = uploaded_image
 
             st.success(
-                f"PDF: {pdf.name}"
+                f"Image: {uploaded_image.name}"
+            )
+
+        # ==================================================
+        # BUILD KNOWLEDGE BASE
+        # ==================================================
+
+        if st.button(
+            "Build Knowledge Base",
+            use_container_width=True,
+            disabled=(
+                st.session_state.pdf_file is None
+            )
+        ):
+
+            pdf = st.session_state.pdf_file
+
+            temp_path = None
+
+            try:
+
+                # ------------------------------------------
+                # Save uploaded PDF temporarily
+                # ------------------------------------------
+
+                with tempfile.NamedTemporaryFile(
+                    delete=False,
+                    suffix=".pdf"
+                ) as temp_file:
+
+                    temp_file.write(
+                        pdf.getvalue()
+                    )
+
+                    temp_path = temp_file.name
+
+                # ------------------------------------------
+                # Build Chroma database
+                # ------------------------------------------
+
+                with st.spinner(
+                    "Building knowledge base..."
+                ):
+
+                    pages, chunks = (
+                        create_vector_database(
+                            temp_path
+                        )
+                    )
+
+                # ------------------------------------------
+                # Store result
+                # ------------------------------------------
+
+                st.session_state.pages = pages
+
+                st.session_state.chunks = chunks
+
+                st.session_state.knowledge_ready = True
+
+                st.session_state.build_error = None
+
+                st.session_state.messages = []
+
+                st.success(
+                    "Knowledge Base Ready"
+                )
+
+            except Exception as e:
+
+                st.session_state.knowledge_ready = False
+
+                st.session_state.build_error = str(e)
+
+            finally:
+
+                # ------------------------------------------
+                # Remove temporary PDF
+                # ------------------------------------------
+
+                if (
+                    temp_path is not None
+                    and os.path.exists(temp_path)
+                ):
+
+                    os.remove(temp_path)
+
+        # ==================================================
+        # ERROR
+        # ==================================================
+
+        if st.session_state.build_error:
+
+            st.error(
+                "Failed to build knowledge base:\n\n"
+                + st.session_state.build_error
+            )
+
+        # ==================================================
+        # STATUS
+        # ==================================================
+
+        st.markdown(
+            """
+            <h2 style="
+                font-size:22px;
+                margin-top:35px;
+            ">
+                Status
+            </h2>
+            """,
+            unsafe_allow_html=True
+        )
+
+        if st.session_state.pdf_file:
+
+            st.success(
+                f"PDF: {st.session_state.pdf_file.name}"
             )
 
         else:
@@ -226,11 +316,10 @@ def render_individual():
                 "No PDF uploaded"
             )
 
-
-        if image:
+        if st.session_state.image_file:
 
             st.success(
-                "Image uploaded"
+                f"Image: {st.session_state.image_file.name}"
             )
 
         else:
@@ -239,20 +328,15 @@ def render_individual():
                 "Image not uploaded"
             )
 
-
-        # --------------------------------------------------
-        # KNOWLEDGE BASE STATUS
-        # --------------------------------------------------
-
-        if st.session_state.individual_db_ready:
+        if st.session_state.knowledge_ready:
 
             st.success(
                 "Knowledge Base: Ready"
             )
 
             st.caption(
-                f"{st.session_state.individual_pages} pages • "
-                f"{st.session_state.individual_chunks} chunks"
+                f"{st.session_state.pages} pages • "
+                f"{st.session_state.chunks} chunks"
             )
 
         else:
@@ -261,264 +345,209 @@ def render_individual():
                 "Knowledge Base: Not Ready"
             )
 
-
     # ======================================================
-    # RIGHT PANEL — DIALOGUE
+    # RIGHT COLUMN
     # ======================================================
 
     with right:
 
-        st.subheader("Dialogue")
-
-
-        # --------------------------------------------------
-        # WELCOME
-        # --------------------------------------------------
-
-        if not st.session_state.individual_messages:
-
-            with st.container(border=True):
-
-                st.markdown(
-                    "### Welcome to Individual Analysis"
-                )
-
-                st.write(
-                    "Upload a PDF and optionally provide an image. "
-                    "Build the knowledge base and start asking "
-                    "questions about your content."
-                )
-
-
-        # --------------------------------------------------
-        # SUGGESTED QUESTIONS
-        # --------------------------------------------------
-
-        if not st.session_state.individual_messages:
-
-            st.markdown(
-                "#### Suggested Questions"
-            )
-
-            q1, q2 = st.columns(2)
-
-
-            with q1:
-
-                if st.button(
-                    "Summarize Document",
-                    key="individual_summary",
-                    use_container_width=True,
-                ):
-
-                    st.session_state.individual_preset = (
-                        "Summarize this document."
-                    )
-
-
-                if st.button(
-                    "Extract Key Points",
-                    key="individual_points",
-                    use_container_width=True,
-                ):
-
-                    st.session_state.individual_preset = (
-                        "Extract the key points from this document."
-                    )
-
-
-            with q2:
-
-                if st.button(
-                    "Generate Notes",
-                    key="individual_notes",
-                    use_container_width=True,
-                ):
-
-                    st.session_state.individual_preset = (
-                        "Generate concise notes from this document."
-                    )
-
-
-                if st.button(
-                    "Explain Diagrams",
-                    key="individual_diagrams",
-                    use_container_width=True,
-                ):
-
-                    st.session_state.individual_preset = (
-                        "Explain the diagrams in this document."
-                    )
-
-
-            st.divider()
-
-
-        # --------------------------------------------------
-        # CHAT HISTORY
-        # --------------------------------------------------
-
-        chat_area = st.container(
-            height=450,
+        st.markdown(
+            """
+            <h2 style="
+                font-size:28px;
+                font-weight:700;
+                margin-bottom:25px;
+            ">
+                Dialogue
+            </h2>
+            """,
+            unsafe_allow_html=True
         )
 
+        # --------------------------------------------------
+        # Conversation
+        # --------------------------------------------------
 
-        with chat_area:
+        for message in st.session_state.messages:
 
-            if not st.session_state.individual_messages:
+            if message["role"] == "user":
 
-                st.info(
-                    "No conversation yet."
+                with st.chat_message("user"):
+
+                    st.write(
+                        message["content"]
+                    )
+
+            else:
+
+                with st.chat_message("assistant"):
+
+                    st.write(
+                        message["content"]
+                    )
+
+        # --------------------------------------------------
+        # Suggested Questions
+        # --------------------------------------------------
+
+        st.markdown(
+            "### Suggested Questions"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            summarize = st.button(
+                "Summarize Document",
+                use_container_width=True
+            )
+
+            key_points = st.button(
+                "Extract Key Points",
+                use_container_width=True
+            )
+
+        with col2:
+
+            notes = st.button(
+                "Generate Notes",
+                use_container_width=True
+            )
+
+            diagrams = st.button(
+                "Explain Diagrams",
+                use_container_width=True
+            )
+
+        # --------------------------------------------------
+        # Response controls
+        # --------------------------------------------------
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            response_style = st.selectbox(
+                "Response Style",
+                [
+                    "📖 Accurate",
+                    "⚖️ Balanced",
+                    "🎨 Creative"
+                ]
+            )
+
+        with col2:
+
+            answer_length = st.selectbox(
+                "Answer Length",
+                [
+                    "Short",
+                    "Medium",
+                    "Detailed"
+                ]
+            )
+
+        # --------------------------------------------------
+        # Suggested question mapping
+        # --------------------------------------------------
+
+        question = None
+
+        if summarize:
+
+            question = (
+                "Summarize this document."
+            )
+
+        elif key_points:
+
+            question = (
+                "Extract the key points "
+                "from this document."
+            )
+
+        elif notes:
+
+            question = (
+                "Generate useful study notes "
+                "from this document."
+            )
+
+        elif diagrams:
+
+            question = (
+                "Explain the diagrams "
+                "present in this document."
+            )
+
+        # --------------------------------------------------
+        # Chat input
+        # --------------------------------------------------
+
+        user_question = st.chat_input(
+            "Ask anything about your document..."
+        )
+
+        if user_question:
+
+            question = user_question
+
+        # --------------------------------------------------
+        # Generate response
+        # --------------------------------------------------
+
+        if question:
+
+            if not st.session_state.knowledge_ready:
+
+                st.warning(
+                    "Please build the Knowledge Base first."
                 )
 
             else:
 
-                for message in (
-                    st.session_state.individual_messages
-                ):
+                st.session_state.messages.append(
+                    {
+                        "role": "user",
+                        "content": question
+                    }
+                )
 
-                    with st.chat_message(
-                        message["role"]
+                try:
+
+                    with st.spinner(
+                        "Searching document..."
                     ):
 
-                        st.markdown(
-                            message["content"]
+                        answer, docs = (
+                            generate_response(
+                                question=question,
+                                image=(
+                                    st.session_state.image_file
+                                ),
+                                response_style=response_style,
+                                answer_length=answer_length
+                            )
                         )
 
+                    st.session_state.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": answer
+                        }
+                    )
 
-        # --------------------------------------------------
-        # CHAT INPUT
-        # --------------------------------------------------
+                    st.rerun()
 
-        preset = st.session_state.individual_preset
+                except Exception as e:
 
-        question = st.chat_input(
-            "Ask anything about your document...",
-            key="individual_chat",
-        )
+                    st.session_state.messages.append(
+                        {
+                            "role": "assistant",
+                            "content":
+                            f"Error: {str(e)}"
+                        }
+                    )
 
-
-        # --------------------------------------------------
-        # PRESET QUESTION
-        # --------------------------------------------------
-
-        if question is None and preset:
-
-            question = preset
-
-            st.session_state.individual_preset = ""
-
-
-    # ======================================================
-    # QUESTION PROCESSING
-    # ======================================================
-
-    if question:
-
-        if not st.session_state.individual_db_ready:
-
-            st.warning(
-                "Please build the knowledge base before "
-                "asking questions."
-            )
-
-            return
-
-
-        # --------------------------------------------------
-        # USER MESSAGE
-        # --------------------------------------------------
-
-        st.session_state.individual_messages.append(
-            {
-                "role": "user",
-                "content": question,
-            }
-        )
-
-
-        # --------------------------------------------------
-        # GENERATE RESPONSE
-        # --------------------------------------------------
-
-        with st.spinner(
-            "Searching document and generating response..."
-        ):
-
-            try:
-
-                answer, docs = generate_response(
-                    question=question,
-                    image=image,
-                    response_style="⚖️ Balanced",
-                    answer_length="Medium",
-                )
-
-            except Exception as e:
-
-                answer = (
-                    "An error occurred while generating "
-                    f"the response:\n\n{e}"
-                )
-
-                docs = []
-
-
-        # --------------------------------------------------
-        # ASSISTANT MESSAGE
-        # --------------------------------------------------
-
-        st.session_state.individual_messages.append(
-            {
-                "role": "assistant",
-                "content": answer,
-            }
-        )
-
-
-        # --------------------------------------------------
-        # SOURCES
-        # --------------------------------------------------
-
-        st.session_state.individual_sources = docs
-
-
-        # --------------------------------------------------
-        # REFRESH
-        # --------------------------------------------------
-
-        st.rerun()
-
-
-    # ======================================================
-    # RETRIEVED SOURCES
-    # ======================================================
-
-    if st.session_state.individual_sources:
-
-        st.divider()
-
-        with st.expander(
-            "Retrieved Sources",
-            expanded=False,
-        ):
-
-            for index, doc in enumerate(
-                st.session_state.individual_sources,
-                start=1,
-            ):
-
-                page = doc.metadata.get(
-                    "page",
-                    "?",
-                )
-
-                st.markdown(
-                    f"### Source {index} · Page {page}"
-                )
-
-                st.write(
-                    doc.page_content
-                )
-
-                st.divider()
+                    st.rerun()
