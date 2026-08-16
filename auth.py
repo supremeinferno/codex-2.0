@@ -3,10 +3,15 @@ import hashlib
 import os
 import random
 
-import resend
 
 from openpyxl import Workbook, load_workbook
+import smtplib
 
+from email.mime.text import MIMEText
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_PATH = "users.db"
 EXCEL_PATH = "users_data.xlsx"
@@ -510,50 +515,74 @@ def generate_otp():
 
 def send_otp(email, otp):
 
-    api_key = os.getenv("RESEND_API_KEY")
-
-    from_email = os.getenv(
-        "RESEND_FROM_EMAIL",
-        "onboarding@resend.dev"
+    smtp_email = os.getenv("SMTP_EMAIL")
+    smtp_password = os.getenv("SMTP_APP_PASSWORD")
+    smtp_host = os.getenv(
+        "SMTP_HOST",
+        "smtp.gmail.com"
+    )
+    smtp_port = int(
+        os.getenv(
+            "SMTP_PORT",
+            "587"
+        )
     )
 
-    if not api_key:
+    if not smtp_email:
+        return False, "SMTP_EMAIL is missing."
 
-        return False, "RESEND_API_KEY is missing."
+    if not smtp_password:
+        return False, "SMTP_APP_PASSWORD is missing."
 
     try:
 
-        resend.api_key = api_key
+        message = MIMEText(
+            f"""
+Your CODEX password reset OTP is:
 
-        resend.Emails.send({
-            "from": from_email,
-            "to": [email],
-            "subject": "CODEX Password Reset OTP",
-            "html": f"""
-                <div style="font-family: Arial, sans-serif;">
-                    <h2>CODEX Password Reset</h2>
+{otp}
 
-                    <p>Your verification code is:</p>
+This OTP is valid for 5 minutes.
 
-                    <h1>{otp}</h1>
+If you did not request a password reset,
+you can safely ignore this email.
+"""
+        )
 
-                    <p>
-                        This OTP is valid for 5 minutes.
-                    </p>
+        message["Subject"] = (
+            "CODEX Password Reset OTP"
+        )
 
-                    <p>
-                        If you didn't request a password reset,
-                        you can safely ignore this email.
-                    </p>
-                </div>
-            """
-        })
+        message["From"] = smtp_email
+        message["To"] = email
+
+        server = smtplib.SMTP(
+            smtp_host,
+            smtp_port
+        )
+
+        server.starttls()
+
+        server.login(
+            smtp_email,
+            smtp_password
+        )
+
+        server.sendmail(
+            smtp_email,
+            email,
+            message.as_string()
+        )
+
+        server.quit()
 
         return True, "OTP sent successfully."
 
     except Exception as e:
 
-        return False, str(e)
+        return False, (
+            f"Failed to send OTP: {str(e)}"
+        )
 
 
 # ==========================================================
