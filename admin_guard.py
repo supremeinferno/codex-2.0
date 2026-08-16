@@ -1,6 +1,6 @@
 import streamlit as st
 
-ADMIN_EMAIL = "pgarg_be24@thapar.edu"
+ADMIN_EMAIL = "codexproject9@gmail.com"
 
 
 def require_admin():
