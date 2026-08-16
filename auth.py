@@ -2,7 +2,6 @@ import sqlite3
 import hashlib
 import os
 import random
-import time
 
 import resend
 
@@ -88,7 +87,6 @@ def sync_excel():
 
     conn.close()
 
-    # Create workbook if missing
     if os.path.exists(EXCEL_PATH):
 
         wb = load_workbook(EXCEL_PATH)
@@ -97,7 +95,6 @@ def sync_excel():
 
         wb = Workbook()
 
-        # Remove default sheet
         default_sheet = wb.active
         wb.remove(default_sheet)
 
@@ -106,10 +103,12 @@ def sync_excel():
     # ------------------------------------------------------
 
     if "Users" in wb.sheetnames:
+
         ws = wb["Users"]
         ws.delete_rows(1, ws.max_row)
 
     else:
+
         ws = wb.create_sheet("Users")
 
     ws.append([
@@ -126,10 +125,12 @@ def sync_excel():
     # ------------------------------------------------------
 
     if "Login Activity" in wb.sheetnames:
+
         ws = wb["Login Activity"]
         ws.delete_rows(1, ws.max_row)
 
     else:
+
         ws = wb.create_sheet("Login Activity")
 
     ws.append([
@@ -165,7 +166,6 @@ def sync_excel():
         for column in sheet.columns:
 
             max_length = 0
-
             column_letter = column[0].column_letter
 
             for cell in column:
@@ -305,7 +305,6 @@ def delete_user(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Get user before deleting
     cursor.execute(
         """
         SELECT id, email, created_at
@@ -323,10 +322,7 @@ def delete_user(user_id):
 
         return False
 
-    # ------------------------------------------------------
     # Save deleted user to Excel
-    # ------------------------------------------------------
-
     if os.path.exists(EXCEL_PATH):
 
         wb = load_workbook(EXCEL_PATH)
@@ -366,10 +362,7 @@ def delete_user(user_id):
 
     wb.save(EXCEL_PATH)
 
-    # ------------------------------------------------------
     # Delete login history
-    # ------------------------------------------------------
-
     cursor.execute(
         """
         DELETE FROM login_activity
@@ -378,10 +371,7 @@ def delete_user(user_id):
         (user_id,)
     )
 
-    # ------------------------------------------------------
     # Delete user
-    # ------------------------------------------------------
-
     cursor.execute(
         """
         DELETE FROM users
@@ -396,6 +386,25 @@ def delete_user(user_id):
     sync_excel()
 
     return True
+
+
+# ==========================================================
+# CLEAR ALL LOGIN ACTIVITY
+# ==========================================================
+
+def clear_login_activity():
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM login_activity"
+    )
+
+    conn.commit()
+    conn.close()
+
+    sync_excel()
 
 
 # ==========================================================
@@ -486,33 +495,30 @@ def get_login_activity():
 
 
 # ==========================================================
-# INITIALIZE
-# ==========================================================
-
-init_db()
-
-
-
-# ==========================================================
 # OTP
 # ==========================================================
 
-OTP_EXPIRY_SECONDS = 300  # 5 minutes
+OTP_EXPIRY_SECONDS = 300
 
 
 def generate_otp():
-    return str(random.randint(100000, 999999))
+
+    return str(
+        random.randint(100000, 999999)
+    )
 
 
 def send_otp(email, otp):
 
     api_key = os.getenv("RESEND_API_KEY")
+
     from_email = os.getenv(
         "RESEND_FROM_EMAIL",
         "onboarding@resend.dev"
     )
 
     if not api_key:
+
         return False, "RESEND_API_KEY is missing."
 
     try:
@@ -531,7 +537,9 @@ def send_otp(email, otp):
 
                     <h1>{otp}</h1>
 
-                    <p>This OTP is valid for 5 minutes.</p>
+                    <p>
+                        This OTP is valid for 5 minutes.
+                    </p>
 
                     <p>
                         If you didn't request a password reset,
@@ -548,9 +556,8 @@ def send_otp(email, otp):
         return False, str(e)
 
 
-
 # ==========================================================
-# Reset Password
+# RESET PASSWORD
 # ==========================================================
 
 def reset_password(email, new_password):
@@ -558,9 +565,14 @@ def reset_password(email, new_password):
     email = email.strip().lower()
 
     if len(new_password) < 6:
-        return False, "Password must contain at least 6 characters."
 
-    password_hash = hash_password(new_password)
+        return False, (
+            "Password must contain at least 6 characters."
+        )
+
+    password_hash = hash_password(
+        new_password
+    )
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -571,11 +583,16 @@ def reset_password(email, new_password):
         SET password_hash = ?
         WHERE email = ?
         """,
-        (password_hash, email),
+        (
+            password_hash,
+            email,
+        ),
     )
 
     if cursor.rowcount == 0:
+
         conn.close()
+
         return False, "User not found."
 
     conn.commit()
@@ -584,3 +601,10 @@ def reset_password(email, new_password):
     sync_excel()
 
     return True, "Password reset successfully."
+
+
+# ==========================================================
+# INITIALIZE
+# ==========================================================
+
+init_db()
