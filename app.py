@@ -554,21 +554,28 @@ with nav3:
 # ADMIN NAVIGATION
 # ==========================================================
 
+# ==========================================================
+# ADMIN NAVIGATION
+# ==========================================================
+
+ADMIN_EMAIL = "pgarg_be24@thapar.edu"
+
 user = st.session_state.get("user")
 
 if (
     user
-    and user.get("email") == "317madhavgarg@gmail.com"
+    and user.get("email", "").strip().lower()
+    == ADMIN_EMAIL.strip().lower()
 ):
+
     if st.button(
         "Admin Dashboard",
         key="nav_admin",
         use_container_width=True,
     ):
+
         st.session_state.current_page = "Admin Dashboard"
         st.rerun()
-
-
 
 
 # ==========================================================
