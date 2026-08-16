@@ -487,8 +487,8 @@ st.markdown(
 # NAVIGATION
 # ==========================================================
 
-nav1, nav2, nav3 = st.columns(
-    3,
+nav1, nav2= st.columns(
+    2,
     gap="medium",
 )
 
@@ -532,21 +532,6 @@ with nav2:
 
         st.rerun()
 
-
-with nav3:
-
-    if st.button(
-        "📊  Dashboard",
-        key="nav_dashboard",
-        use_container_width=True,
-        type=_nav_button_type("Dashboard"),
-    ):
-
-        st.session_state.current_page = (
-            "Dashboard"
-        )
-
-        st.rerun()
 
 
 
@@ -595,14 +580,6 @@ elif st.session_state.current_page == "Research Mode":
         "Research Mode is under development."
     )
 
-
-elif st.session_state.current_page == "Dashboard":
-
-    st.title("Dashboard")
-
-    st.info(
-        "Dashboard is under development."
-    )
 
 elif st.session_state.current_page == "Admin Dashboard":
 
