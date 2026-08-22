@@ -2,6 +2,7 @@ import streamlit as st
 from login_guard import require_login
 from profile import render_profile
 from pages.individual import render_individual
+from pages.research.research_ui import render_research
 from admin_page import render_admin_page
 
 # ==========================================================
@@ -566,14 +567,8 @@ if st.session_state.current_page == "Individual Analysis":
 
     render_individual()
 
-
 elif st.session_state.current_page == "Research Mode":
-
-    st.title("Research Mode")
-
-    st.info(
-        "Research Mode is under development."
-    )
+    render_research()
 
 
 elif st.session_state.current_page == "Admin Dashboard":
